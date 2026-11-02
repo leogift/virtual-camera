@@ -1,0 +1,61 @@
+@PACKAGE_INIT@
+
+# vcam 的 CMake 包配置。
+#
+# 用法（下游工程）：
+#     find_package(vcam 1.0 REQUIRED)
+#     target_link_libraries(app PRIVATE vcam::core)
+#
+# ## 为什么必须在这里解决 Threads 与 OpenMP
+#
+# vcamTargets.cmake 的 INTERFACE_LINK_LIBRARIES 里写着
+# `Threads::Threads` 和 `OpenMP::OpenMP_C`。这两个都是 IMPORTED target，
+# 只有调用过对应的 find_package 才存在。否则下游在**配置阶段**就报
+#     The link interface of target "vcam::core" contains: Threads::Threads
+#     but the target was not found.
+# 这个报错指向 vcamTargets.cmake 而不是调用方的 CMakeLists，极易被误读
+# 成"安装损坏"。所以必须在包配置里替下游找好。
+#
+# ## OpenMP 可选但有条件
+#
+# vcam_core 是静态库；若它以 OpenMP 编译，下游就必须能解析 `___kmpc_*`
+# 符号。这里 find 一次：
+#   - 找到 -> 交给 vcamTargets 链接
+#   - 找不到 -> 明确警告并给出两条出路（装 libomp / 重编 vcam），
+#              而不是让下游对着 ld 的 "library 'omp' not found" 猜
+
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
+
+set(_vcam_need_omp "@VCAM_EXPORT_NEEDS_OPENMP@")
+if(_vcam_need_omp)
+  find_package(OpenMP QUIET COMPONENTS C CXX)
+  if(NOT OpenMP_C_FOUND AND NOT OpenMP_CXX_FOUND)
+    # 兜底：直接找 libomp / gomp（AppleClang 的 find_package(OpenMP) 只看
+    # 编译器自带的运行时，看不到 Homebrew 装的 libomp）
+    find_path(_vcam_omp_inc omp.h
+      HINTS /opt/homebrew/opt/libomp/include /usr/local/opt/libomp/include)
+    find_library(_vcam_omp_lib omp
+      HINTS /opt/homebrew/opt/libomp/lib /usr/local/opt/libomp/lib)
+    if(_vcam_omp_inc AND _vcam_omp_lib)
+      add_library(OpenMP::OpenMP_C UNKNOWN IMPORTED)
+      set_target_properties(OpenMP::OpenMP_C PROPERTIES
+        IMPORTED_LOCATION "${_vcam_omp_lib}"
+        INTERFACE_INCLUDE_DIRECTORIES "${_vcam_omp_inc}")
+    else()
+      message(WARNING
+        "vcam 以 OpenMP 编译, 但本机找不到 OpenMP 运行时。\n"
+        "  下游链接会报 ___kmpc_* undefined reference。\n"
+        "  出路 A: 装运行时 (macOS: brew install libomp; "
+        "Debian/Ubuntu: apt install libgomp1)\n"
+        "  出路 B: 用 -DVCAM_USE_OPENMP=OFF 重编 vcam 并重新 install")
+    endif()
+    unset(_vcam_omp_inc)
+    unset(_vcam_omp_lib)
+  endif()
+endif()
+unset(_vcam_need_omp)
+
+include("${CMAKE_CURRENT_LIST_DIR}/vcamTargets.cmake")
+
+check_required_components(vcam)

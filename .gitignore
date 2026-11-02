@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------- macOS
+# 在 exFAT / 网络卷上创建文件时生成的 AppleDouble 资源分支。
+# 本工程在 /Volumes/Workspace (exFAT) 上，一次构建就能刷出几千个。
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+*.swp
+
+# ---------------------------------------------------------------- C++ 构建产物
+# 只忽略工程内的构建目录。**不要写裸 `build/`**：Python 打包也会产生
+# build/，而且 `Makefile` 这种裸条目会误伤手写的 Makefile。
+/cpp/build/
+/cpp/cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dSYM/
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# ---------------------------------------------------------------- 三方库实体
+# third_party/ 下是 tools/sync_third_party.py 建立的符号链接，只提交
+# 脚本本身；实体库指向本机 Homebrew，换机器重跑脚本即可。
+#
+# **不要写 `cpp/third_party/libomp/` 这种整目录排除**：git 不会进入被
+# 排除的目录，后面再用 `!.gitkeep` 也救不回来，目录结构于是进不了仓库。
+# 只排除具体的链接文件。
+cpp/third_party/*/include/*
+cpp/third_party/*/lib/*
+!cpp/third_party/*/include/.gitkeep
+!cpp/third_party/*/lib/.gitkeep
+
+# ---------------------------------------------------------------- Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+/build/
+
+# ---------------------------------------------------------------- 生成物
+# out/ 是转换结果与对拍图，全部可由 tools/ 下的脚本重新生成。
+# 复现命令见 README「验证」一节。
+out/
+
+# ---------------------------------------------------------------- 编辑器
+.idea/
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+
+# ---------------------------------------------------------------- 本地环境
+.env
+*.local
+.DS_Store?
